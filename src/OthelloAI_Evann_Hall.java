@@ -11,17 +11,19 @@ import java.util.Random;
 
 public class OthelloAI_Evann_Hall implements OthelloAI {
 
-	int eval(OthelloGameState s){
+	boolean IS_BLACK;
 
-
-		return 0;
+	int eval(OthelloGameState s) {
+		int score = 0;
+		if (IS_BLACK) {
+			score = s.getBlackScore() - s.getWhiteScore();
+		} else {
+			score = s.getWhiteScore() - s.getBlackScore();
+		}
+		return score;
 	}
 
-	public boolean isLeaf(OthelloGameState s){
-		
-	}
-
-	int search(OthelloGameState s, int depth){
+	int search(OthelloGameState s, int depth) {
 
 		/* if depth == 0 or leaf node
 		 * 		return eval of s
@@ -41,10 +43,8 @@ public class OthelloAI_Evann_Hall implements OthelloAI {
 		 * 			return minimum value from recursive search
 		*/
 
-
 		return 1;
 	}
-
 
 	// TODO: need a heuristic class
 	public static int getRandomNumber(int x) {
@@ -52,6 +52,39 @@ public class OthelloAI_Evann_Hall implements OthelloAI {
 		return random.nextInt(x);
 	}
 
+	// TODO: Implement as a priority queue or a TreeMap
+	public HashMap<OthelloMove, Heuristic> findValidMoves(OthelloGameState state) {
+
+		// no way there is more than 30 valid moves, ever
+		// ArrayList<OthelloMove> validList = new ArrayList(30);
+		HashMap<OthelloMove, Heuristic> validList = new HashMap<OthelloMove, Heuristic>();
+
+		// check for corners first
+
+		for (int c = 0; c < 8; c++) {
+			for (int r = 0; r < 8; r++) {
+				if (state.isValidMove(r, c)) {
+
+					// Clone the game data for the upcoming state, make the move.
+					OthelloGameState nextState = state.clone();
+					nextState.makeMove(r, c);
+
+					System.out.println("EVALUATION OF " + nextState.hashCode() + ": " + eval(nextState));
+
+					// get heuristic values
+					int bs = nextState.getBlackScore();
+					int ws = nextState.getWhiteScore();
+					Heuristic h = new Heuristic(bs, ws);
+
+					// pack heuristic values with the relevant next move
+					validList.put(new OthelloMove(r, c), h);
+
+					// validList.add(new OthelloMove(r, c)); deprecated
+				}
+			}
+		}
+		return validList;
+	}
 
 	// chooseMove() takes an OthelloGameState and chooses the best move,
 	// returning an OthelloMove that indicates what the move is. For
@@ -59,7 +92,9 @@ public class OthelloAI_Evann_Hall implements OthelloAI {
 	// you'd return a new OthelloMove with row 0 and column 3.
 	public OthelloMove chooseMove(OthelloGameState state) {
 
-		boolean isBlackTurn = state.isBlackTurn();
+		IS_BLACK = state.isBlackTurn();
+
+		System.out.println("WE ARE BLACK? " + IS_BLACK);
 
 		HashMap<OthelloMove, Heuristic> heuristicMap = findValidMoves(state);
 
@@ -69,14 +104,14 @@ public class OthelloAI_Evann_Hall implements OthelloAI {
 		// first pass should always be better, bs and ws at least 2.
 		Heuristic bestHeuristic = new Heuristic(0, 0);
 
-		if(checkCorners(state) != null){
+		/*if (checkCorners(state) != null) {
 
-		}
+		}*/
 
-		if (isBlackTurn) {
+		if (IS_BLACK) {
 			for (OthelloMove m : heuristicMap.keySet()) {
 				Heuristic possibleMoveHeuristic = heuristicMap.get(m);
-				if(possibleMoveHeuristic.getBlackScore() > bestHeuristic.getBlackScore()){
+				if (possibleMoveHeuristic.getBlackScore() > bestHeuristic.getBlackScore()) {
 					bestMove = m;
 					bestHeuristic = possibleMoveHeuristic;
 				}
@@ -84,13 +119,15 @@ public class OthelloAI_Evann_Hall implements OthelloAI {
 		} else {
 			for (OthelloMove m : heuristicMap.keySet()) {
 				Heuristic possibleMoveHeuristic = heuristicMap.get(m);
-				if(possibleMoveHeuristic.getWhiteScore() > bestHeuristic.getWhiteScore()){
+				if (possibleMoveHeuristic.getWhiteScore() > bestHeuristic.getWhiteScore()) {
 					bestMove = m;
 					bestHeuristic = possibleMoveHeuristic;
 				}
 			}
 		}
-		
+
+
+		System.out.println("PICKING MOVE " + bestMove.hashCode() + " WITH EVAL " + heuristicMap.get(bestMove).toString());
 		return bestMove;
 	}
 
@@ -152,6 +189,13 @@ public class OthelloAI_Evann_Hall implements OthelloAI {
 				return false;
 			return true;
 		}
+
+		@Override
+		public String toString() {
+			return "Heuristic [blackScore=" + blackScore + ", whiteScore=" + whiteScore + "]";
+		}
+
+		
 	}
 
 }
