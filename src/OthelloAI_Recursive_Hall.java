@@ -13,15 +13,10 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 
 	boolean IS_BLACK;
 
-	int eval(OthelloGameState s) {
-		int score = 0;
-		if (IS_BLACK) {
-			score = s.getBlackScore() - s.getWhiteScore();
-		} else {
-			score = s.getWhiteScore() - s.getBlackScore();
-		}
-		return score;
+	int evalSide(OthelloGameState s, boolean isBlack) {
+		return isBlack ? s.getBlackScore() - s.getWhiteScore() : s.getWhiteScore() - s.getBlackScore();
 	}
+
 
 	int search(OthelloGameState s, int depth) {
 
@@ -62,11 +57,8 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	}
 
 	// TODO: Implement as a priority queue or a TreeMap
-	public HashMap<OthelloMove, Heuristic> findValidMoves(OthelloGameState state) {
-
-		// no way there is more than 30 valid moves, ever
-		// ArrayList<OthelloMove> validList = new ArrayList(30);
-		HashMap<OthelloMove, Heuristic> validList = new HashMap<OthelloMove, Heuristic>();
+	public HashMap<OthelloMove, Integer> findValidMoves(OthelloGameState state) {
+		HashMap<OthelloMove, Integer> validList = new HashMap<OthelloMove, Integer>();
 
 		// check for corners first
 
@@ -78,18 +70,9 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 					OthelloGameState nextState = state.clone();
 					nextState.makeMove(r, c);
 
-					// System.out.println("EVALUATION OF " + nextState.hashCode() + ": " +
-					// eval(nextState));
-
 					// get heuristic values
-					int bs = nextState.getBlackScore();
-					int ws = nextState.getWhiteScore();
-					Heuristic h = new Heuristic(bs, ws);
-
 					// pack heuristic values with the relevant next move
-					validList.put(new OthelloMove(r, c), h);
-
-					// validList.add(new OthelloMove(r, c)); deprecated
+					validList.put(new OthelloMove(r, c), evalSide(nextState, IS_BLACK));
 				}
 			}
 		}
@@ -106,109 +89,107 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 
 		System.out.println("WE ARE BLACK? " + IS_BLACK);
 		System.out.println(isTerminalNode(state));
-	
 
-	HashMap<OthelloMove, Heuristic> heuristicMap = findValidMoves(state);
+		HashMap<OthelloMove, Integer> heuristicMap = findValidMoves(state);
 
-	System.out.println(heuristicMap.toString());
+		System.out.println(heuristicMap.toString());
 
-	OthelloMove bestMove = null;
-	// first pass should always be better, bs and ws at least 2.
-	Heuristic bestHeuristic = new Heuristic(0, 0);
+		OthelloMove bestMove = null;
+		// first pass should always be better, bs and ws at least 2.
+		int bestHeuristic = -99;
+
+		if (IS_BLACK) {
+			for (OthelloMove m : heuristicMap.keySet()) {
+				int possibleMoveHeuristic = heuristicMap.get(m);
+
+				if (possibleMoveHeuristic > bestHeuristic) {
+					bestMove = m;
+					bestHeuristic = possibleMoveHeuristic;
+				}
+
+			}
+		} else {
+			for (OthelloMove m : heuristicMap.keySet()) {
+				int possibleMoveHeuristic = heuristicMap.get(m);
+				if (possibleMoveHeuristic > bestHeuristic) {
+					bestMove = m;
+					bestHeuristic = possibleMoveHeuristic;
+				}
+			}
+		}
+
+		System.out.println("PICKING MOVE " + bestMove.hashCode() + " WITH EVAL " + heuristicMap.get(bestMove).toString());
+		return bestMove;
+	}
 
 	/*
-	 * if (checkCorners(state) != null) {
+	 * DEPRECATED
+	 * 
+	 * This class is responsible for being the value in a kv pair with the game
+	 * state
+	 * in order to efficiently organize the game states by highest heuristic value
+	 * 
+	 * if you are getting a certain move set, you are getting the next
+	 * state's heuristic values.
+	 * 
+	 * public static class Heuristic {
+	 * 
+	 * int blackScore;
+	 * int whiteScore;
+	 * 
+	 * public Heuristic(int blackScore, int whiteScore) {
+	 * this.blackScore = blackScore;
+	 * this.whiteScore = whiteScore;
+	 * }
+	 * 
+	 * public int getBlackScore() {
+	 * return blackScore;
+	 * }
+	 * 
+	 * public void setBlackScore(int blackScore) {
+	 * this.blackScore = blackScore;
+	 * }
+	 * 
+	 * public int getWhiteScore() {
+	 * return whiteScore;
+	 * }
+	 * 
+	 * public void setWhiteScore(int whiteScore) {
+	 * this.whiteScore = whiteScore;
+	 * }
+	 * 
+	 * @Override
+	 * public int hashCode() {
+	 * final int prime = 31;
+	 * int result = 1;
+	 * result = prime * result + blackScore;
+	 * result = prime * result + whiteScore;
+	 * return result;
+	 * }
+	 * 
+	 * @Override
+	 * public boolean equals(Object obj) {
+	 * if (this == obj)
+	 * return true;
+	 * if (obj == null)
+	 * return false;
+	 * if (getClass() != obj.getClass())
+	 * return false;
+	 * Heuristic other = (Heuristic) obj;
+	 * if (blackScore != other.blackScore)
+	 * return false;
+	 * if (whiteScore != other.whiteScore)
+	 * return false;
+	 * return true;
+	 * }
+	 * 
+	 * @Override
+	 * public String toString() {
+	 * return "Heuristic [blackScore=" + blackScore + ", whiteScore=" + whiteScore +
+	 * "]";
+	 * }
 	 * 
 	 * }
 	 */
-
-	if(IS_BLACK)
-	{
-		for (OthelloMove m : heuristicMap.keySet()) {
-			Heuristic possibleMoveHeuristic = heuristicMap.get(m);
-			if (possibleMoveHeuristic.getBlackScore() > bestHeuristic.getBlackScore()) {
-				bestMove = m;
-				bestHeuristic = possibleMoveHeuristic;
-			}
-		}
-	}else
-	{
-		for (OthelloMove m : heuristicMap.keySet()) {
-			Heuristic possibleMoveHeuristic = heuristicMap.get(m);
-			if (possibleMoveHeuristic.getWhiteScore() > bestHeuristic.getWhiteScore()) {
-				bestMove = m;
-				bestHeuristic = possibleMoveHeuristic;
-			}
-		}
-	}
-
-	System.out.println("PICKING MOVE "+bestMove.hashCode()+" WITH EVAL "+heuristicMap.get(bestMove).toString());return bestMove;
-}
-
-/*
- * This class is responsible for being the value in a kv pair with the game
- * state
- * in order to efficiently organize the game states by highest heuristic value
- * 
- * if you are getting a certain move set, you are getting the next
- * state's heuristic values.
- */
-public static class Heuristic {
-
-	int blackScore;
-	int whiteScore;
-
-	public Heuristic(int blackScore, int whiteScore) {
-		this.blackScore = blackScore;
-		this.whiteScore = whiteScore;
-	}
-
-	public int getBlackScore() {
-		return blackScore;
-	}
-
-	public void setBlackScore(int blackScore) {
-		this.blackScore = blackScore;
-	}
-
-	public int getWhiteScore() {
-		return whiteScore;
-	}
-
-	public void setWhiteScore(int whiteScore) {
-		this.whiteScore = whiteScore;
-	}
-
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + blackScore;
-		result = prime * result + whiteScore;
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
-			return true;
-		if (obj == null)
-			return false;
-		if (getClass() != obj.getClass())
-			return false;
-		Heuristic other = (Heuristic) obj;
-		if (blackScore != other.blackScore)
-			return false;
-		if (whiteScore != other.whiteScore)
-			return false;
-		return true;
-	}
-
-	@Override
-	public String toString() {
-		return "Heuristic [blackScore=" + blackScore + ", whiteScore=" + whiteScore + "]";
-	}
-
-}
 
 }
