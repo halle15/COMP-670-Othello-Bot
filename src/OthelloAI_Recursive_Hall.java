@@ -13,17 +13,24 @@ import java.util.Random;
 public class OthelloAI_Recursive_Hall implements OthelloAI {
 
 	// TUNING PARAMETERS
-	int DEPTH_TUNE = 3;
+	int ALPHA_PARAMETER = -10;
+	int BETA_PARAMETER = 20;
+
+	int DEPTH_TUNE = 6;
+	int IT_DEEPENING_PARAMETER = 25;
+
+	double SCORE_TUNE = 2;
+	double MOBILITY_TUNE = 0.3;
 
 	// CORNERS
-	int AVAILABLE_CORNER_BONUS = 1;
-	int CORNER_BONUS = 2;
-	int ENEMY_CORNER_PENALTY = -3;
+	int AVAILABLE_CORNER_BONUS = 2;
+	int CORNER_BONUS = 5;
+	int ENEMY_CORNER_PENALTY = -10;
 
 	// EDGES
-	int AVAILABLE_EDGE_BONUS = 0;
-	int EDGE_BONUS = 1;
-	int ENEMY_EDGE_PENALTY = -2;
+	int AVAILABLE_EDGE_BONUS = 1;
+	int EDGE_BONUS = 2;
+	int ENEMY_EDGE_PENALTY = -3;
 
 	// END TUNING PARAMETERS
 
@@ -55,25 +62,24 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	int sideHasCorners(OthelloGameState s) {
 		int totalScoreOutput = 0;
 
-
 		if (IS_BLACK_SIDE) {
 			for (OthelloMove m : edges) {
 				OthelloCell moveCell = s.getCell(m.getRow(), m.getColumn());
 				if (moveCell == OthelloCell.BLACK) {
 					if (corners.contains(m)) {
-						//System.out.println("BLACK CORNER TAKEN");
+						// System.out.println("BLACK CORNER TAKEN");
 						totalScoreOutput += CORNER_BONUS;
 					} else {
-						//System.out.println("BLACK EDGE TAKEN");
+						// System.out.println("BLACK EDGE TAKEN");
 						totalScoreOutput += EDGE_BONUS;
 					}
 				} else if (moveCell == OthelloCell.WHITE) {
 					if (corners.contains(m)) {
-						//System.out.println("ENEMY CORNER TAKEN!");
-						totalScoreOutput -= ENEMY_CORNER_PENALTY;
+						// System.out.println("ENEMY CORNER TAKEN!");
+						totalScoreOutput += ENEMY_CORNER_PENALTY;
 					} else {
-						//System.out.println("ENEMY EDGE TAKEN!");
-						totalScoreOutput -= ENEMY_EDGE_PENALTY;
+						// System.out.println("ENEMY EDGE TAKEN!");
+						totalScoreOutput += ENEMY_EDGE_PENALTY;
 					}
 				}
 			}
@@ -82,41 +88,42 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 				OthelloCell moveCell = s.getCell(m.getRow(), m.getColumn());
 				if (moveCell == OthelloCell.WHITE) {
 					if (corners.contains(m)) {
-						//System.out.println("BLACK CORNER TAKEN");
+						// System.out.println("BLACK CORNER TAKEN");
 						totalScoreOutput += CORNER_BONUS;
 					} else {
-						//System.out.println("BLACK EDGE TAKEN");
+						// System.out.println("BLACK EDGE TAKEN");
 						totalScoreOutput += EDGE_BONUS;
 					}
 				} else if (moveCell == OthelloCell.BLACK) {
 					if (corners.contains(m)) {
-						//System.out.println("ENEMY CORNER TAKEN!");
-						totalScoreOutput -= ENEMY_CORNER_PENALTY;
+						// System.out.println("ENEMY CORNER TAKEN!");
+						totalScoreOutput += ENEMY_CORNER_PENALTY;
 					} else {
-						//System.out.println("ENEMY EDGE TAKEN!");
-						totalScoreOutput -= ENEMY_EDGE_PENALTY;
+						// System.out.println("ENEMY EDGE TAKEN!");
+						totalScoreOutput += ENEMY_EDGE_PENALTY;
 					}
 				}
 			}
 		}
 
-		//System.out.println("WOULD RETURN " + totalScoreOutput);
+		// System.out.println("WOULD RETURN " + totalScoreOutput);
 		return totalScoreOutput;
 	}
 
-	int calculateGameAdvantage(OthelloGameState s){
+	int calculateGameAdvantage(OthelloGameState s) {
 		return IS_BLACK_SIDE ? s.getBlackScore() - s.getWhiteScore() : s.getWhiteScore() - s.getBlackScore();
 	}
 
-	int calculateMobilityAdvantage(OthelloGameState s){
-		return findValidMoves(s).size();
+	int calculateMobilityAdvantage(OthelloGameState s) {
+		double mobilityScore = findValidMoves(s).size() * MOBILITY_TUNE;
+		return (int) mobilityScore;
 	}
 
 	int eval(OthelloGameState s) {
 		int totalScore = 0;
-		
-		int gameAdvantage = calculateGameAdvantage(s);
-		
+
+		int gameAdvantage = (int) (calculateGameAdvantage(s) * SCORE_TUNE);
+
 		int mobilityAdvantage = calculateMobilityAdvantage(s);
 
 		int sideAndCornerScore = sideHasCorners(s);
@@ -126,29 +133,8 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		return totalScore;
 	}
 
-	int search(OthelloGameState s, int depth) {
-		/*
-		 * if depth == 0 or leaf node
-		 * return eval of s
-		 * else
-		 * if my turn
-		 * for all valid moves of mine
-		 * make move on s to give us next state
-		 * search next state with depth of - 1
-		 * 
-		 * return max value from recursive search calls
-		 * 
-		 * else
-		 * for eaech valid move of my opponent
-		 * make move on s giving next state
-		 * search next state with depth of - 1
-		 * 
-		 * return minimum value from recursive search
-		 */
-
+	int search(OthelloGameState s, int depth, int alpha, int beta) {
 		boolean ourTurn = (s.isBlackTurn() == IS_BLACK_SIDE);
-
-		//System.out.println("OUR TURN?: " + ourTurn);
 
 		if (depth == 0 || isTerminalNode(s)) {
 			return eval(s);
@@ -157,34 +143,43 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		ArrayList<OthelloMove> validMoves = findValidMoves(s);
 
 		if (ourTurn) { // MAXIMIZE SCORE
-
 			int bestHeuristic = Integer.MIN_VALUE;
 
 			for (OthelloMove m : validMoves) {
-
 				OthelloGameState nextState = s.clone();
 				nextState.makeMove(m.getRow(), m.getColumn());
-				int branchEval = search(nextState, depth - 1);
+
+				int branchEval = search(nextState, depth - 1, alpha, beta);
 
 				if (branchEval > bestHeuristic) {
 					bestHeuristic = branchEval;
 				}
+
+				alpha = Math.max(alpha, bestHeuristic);
+				if (alpha >= beta) {
+					// System.out.println("beta cut off");
+					break; // Beta cut-off
+				}
 			}
 
 			return bestHeuristic;
-
 		} else { // MINIMIZE SCORE
-
 			int worstHeuristic = Integer.MAX_VALUE;
 
 			for (OthelloMove m : validMoves) {
-
 				OthelloGameState nextState = s.clone();
 				nextState.makeMove(m.getRow(), m.getColumn());
-				int branchEval = search(nextState, depth - 1);
+
+				int branchEval = search(nextState, depth - 1, alpha, beta);
 
 				if (branchEval < worstHeuristic) {
 					worstHeuristic = branchEval;
+				}
+
+				beta = Math.min(beta, worstHeuristic);
+				if (beta <= alpha) {
+					// System.out.println("alpha cut off");
+					break; // Alpha cut-off
 				}
 			}
 
@@ -193,7 +188,7 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	}
 
 	public boolean isTerminalNode(OthelloGameState s) {
-		//System.out.println("MOVES: " + findValidMoves(s).size());
+		// System.out.println("MOVES: " + findValidMoves(s).size());
 		if (findValidMoves(s).size() <= 1) {
 			return true;
 		}
@@ -231,7 +226,8 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		moves++;
 		long time = System.nanoTime();
 
-		if(moves % 14 == 0){
+		if (moves % IT_DEEPENING_PARAMETER == 0) {
+			SCORE_TUNE += 2;
 			DEPTH_TUNE++;
 		}
 
@@ -243,7 +239,7 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 			if (state.isValidMove(m.getRow(), m.getColumn())) {
 				time = (System.nanoTime() - time) / 1_000_000;
 
-				//System.out.println("PICKING MOVE " + bestMove.hashCode());
+				// System.out.println("PICKING MOVE " + bestMove.hashCode());
 				System.out.println("TIME TAKEN: " + time);
 				System.out.println("EVALUATION OF OUR STATE: " + eval(state));
 				System.out.println("CORNER! :)");
@@ -251,8 +247,8 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 			}
 		}
 
-		//System.out.println("WE ARE BLACK? " + IS_BLACK_SIDE);
-		//System.out.println(isTerminalNode(state));
+		// System.out.println("WE ARE BLACK? " + IS_BLACK_SIDE);
+		// System.out.println(isTerminalNode(state));
 
 		ArrayList<OthelloMove> validMoves = findValidMoves(state);
 
@@ -261,23 +257,44 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		for (OthelloMove m : validMoves) {
 			OthelloGameState clonedState = state.clone();
 			clonedState.makeMove(m.getRow(), m.getColumn());
-			heuristicMap.put(m, search(clonedState, DEPTH_TUNE));
+			heuristicMap.put(m, search(clonedState, DEPTH_TUNE, ALPHA_PARAMETER, BETA_PARAMETER));
 		}
 
 		OthelloMove bestMove = null;
 		int highestValue = Integer.MIN_VALUE;
 
+		List<OthelloMove> topMoves = new ArrayList<>();
+
 		for (Map.Entry<OthelloMove, Integer> entry : heuristicMap.entrySet()) {
-			if (entry.getValue() > highestValue) {
-				highestValue = entry.getValue();
+			int currentValue = entry.getValue();
+			if (currentValue > highestValue) {
+				highestValue = currentValue;
 				bestMove = entry.getKey();
+				topMoves.clear();
+				topMoves.add(bestMove);
+			} else if (currentValue == highestValue) {
+				topMoves.add(entry.getKey());
+			}
+		}
+
+		if (topMoves.size() > 1) {
+			// Perform a quick 3-depth search on tied moves
+			int bestHeuristic = Integer.MIN_VALUE;
+			for (OthelloMove move : topMoves) {
+				OthelloGameState clonedState = state.clone();
+				clonedState.makeMove(move.getRow(), move.getColumn());
+				int heuristic = search(clonedState, 3, ALPHA_PARAMETER, BETA_PARAMETER);
+				if (heuristic > bestHeuristic) {
+					bestHeuristic = heuristic;
+					bestMove = move;
+				}
 			}
 		}
 
 		time = (System.nanoTime() - time) / 1_000_000;
 
-		//System.out.println("PICKING MOVE " + bestMove.hashCode());
-		for(int i = 0; i < 50; i++){
+		// Print the chosen move and evaluation
+		for (int i = 0; i < 50; i++) {
 			System.out.println();
 		}
 		System.out.println(IS_BLACK_SIDE ? "BLACK TURN " + moves : "WHITE TURN " + moves);
