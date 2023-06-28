@@ -13,7 +13,6 @@ import java.util.Random;
 public class OthelloAI_Recursive_Hall implements OthelloAI {
 
 	// TUNING PARAMETERS
-
 	int DEPTH_TUNE = 3;
 
 	// CORNERS
@@ -28,11 +27,14 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 
 	// END TUNING PARAMETERS
 
+	// GENERAL GAME INFO
 	boolean IS_BLACK_SIDE;
+	int moves = 0;
+
+	// HARDCODED SLOTS
 	static ArrayList<OthelloMove> corners = new ArrayList<>();
 	static ArrayList<OthelloMove> edges = new ArrayList<>();
 
-	// HARDCODED SLOTS
 	static {
 
 		// corners (0,0), (0,7), (7,0), (7,7)
@@ -53,7 +55,6 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	int sideHasCorners(OthelloGameState s) {
 		int totalScoreOutput = 0;
 
-		// Remove corners from edges, since they're already included in the corners list
 
 		if (IS_BLACK_SIDE) {
 			for (OthelloMove m : edges) {
@@ -103,12 +104,24 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		return totalScoreOutput;
 	}
 
+	int calculateGameAdvantage(OthelloGameState s){
+		return IS_BLACK_SIDE ? s.getBlackScore() - s.getWhiteScore() : s.getWhiteScore() - s.getBlackScore();
+	}
+
+	int calculateMobilityAdvantage(OthelloGameState s){
+		return findValidMoves(s).size();
+	}
+
 	int eval(OthelloGameState s) {
 		int totalScore = 0;
 		
-		int gameAdvantage = IS_BLACK_SIDE ? s.getBlackScore() - s.getWhiteScore() : s.getWhiteScore() - s.getBlackScore();
+		int gameAdvantage = calculateGameAdvantage(s);
+		
+		int mobilityAdvantage = calculateMobilityAdvantage(s);
 
 		int sideAndCornerScore = sideHasCorners(s);
+
+		totalScore += (gameAdvantage + mobilityAdvantage + sideAndCornerScore);
 
 		return totalScore;
 	}
@@ -215,8 +228,12 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	// example, if the appropriate move is to place a tile in row 0 column 3,
 	// you'd return a new OthelloMove with row 0 and column 3.
 	public OthelloMove chooseMove(OthelloGameState state) {
-
+		moves++;
 		long time = System.nanoTime();
+
+		if(moves % 14 == 0){
+			DEPTH_TUNE++;
+		}
 
 		IS_BLACK_SIDE = state.isBlackTurn();
 
@@ -224,6 +241,12 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 
 		for (OthelloMove m : corners) {
 			if (state.isValidMove(m.getRow(), m.getColumn())) {
+				time = (System.nanoTime() - time) / 1_000_000;
+
+				//System.out.println("PICKING MOVE " + bestMove.hashCode());
+				System.out.println("TIME TAKEN: " + time);
+				System.out.println("EVALUATION OF OUR STATE: " + eval(state));
+				System.out.println("CORNER! :)");
 				return m;
 			}
 		}
@@ -254,7 +277,12 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		time = (System.nanoTime() - time) / 1_000_000;
 
 		//System.out.println("PICKING MOVE " + bestMove.hashCode());
-		//System.out.println("TIME TAKEN: " + time);
+		for(int i = 0; i < 50; i++){
+			System.out.println();
+		}
+		System.out.println(IS_BLACK_SIDE ? "BLACK TURN " + moves : "WHITE TURN " + moves);
+		System.out.println("TIME TAKEN: " + time);
+		System.out.println("EVALUATION OF OUR STATE: " + eval(state));
 		return bestMove;
 	}
 
