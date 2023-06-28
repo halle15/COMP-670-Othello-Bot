@@ -7,19 +7,113 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class OthelloAI_Recursive_Hall implements OthelloAI {
 
-	boolean IS_BLACK;
+	// TUNING PARAMETERS
 
-	int evalSide(OthelloGameState s, boolean isBlack) {
-		return isBlack ? s.getBlackScore() - s.getWhiteScore() : s.getWhiteScore() - s.getBlackScore();
+	int DEPTH_TUNE = 3;
+
+	// CORNERS
+	int AVAILABLE_CORNER_BONUS = 1;
+	int CORNER_BONUS = 2;
+	int ENEMY_CORNER_PENALTY = -3;
+
+	// EDGES
+	int AVAILABLE_EDGE_BONUS = 0;
+	int EDGE_BONUS = 1;
+	int ENEMY_EDGE_PENALTY = -2;
+
+	// END TUNING PARAMETERS
+
+	boolean IS_BLACK_SIDE;
+	static ArrayList<OthelloMove> corners = new ArrayList<>();
+	static ArrayList<OthelloMove> edges = new ArrayList<>();
+
+	// HARDCODED SLOTS
+	static {
+
+		// corners (0,0), (0,7), (7,0), (7,7)
+		corners.add(new OthelloMove(0, 0));
+		corners.add(new OthelloMove(0, 7));
+		corners.add(new OthelloMove(7, 0));
+		corners.add(new OthelloMove(7, 7));
+
+		// edges excluding corners
+		for (int i = 1; i < 7; i++) {
+			edges.add(new OthelloMove(0, i)); // top edge
+			edges.add(new OthelloMove(7, i)); // bottom edge
+			edges.add(new OthelloMove(i, 0)); // left edge
+			edges.add(new OthelloMove(i, 7)); // right edge
+		}
 	}
 
+	int sideHasCorners(OthelloGameState s) {
+		int totalScoreOutput = 0;
+
+		// Remove corners from edges, since they're already included in the corners list
+
+		if (IS_BLACK_SIDE) {
+			for (OthelloMove m : edges) {
+				OthelloCell moveCell = s.getCell(m.getRow(), m.getColumn());
+				if (moveCell == OthelloCell.BLACK) {
+					if (corners.contains(m)) {
+						//System.out.println("BLACK CORNER TAKEN");
+						totalScoreOutput += CORNER_BONUS;
+					} else {
+						//System.out.println("BLACK EDGE TAKEN");
+						totalScoreOutput += EDGE_BONUS;
+					}
+				} else if (moveCell == OthelloCell.WHITE) {
+					if (corners.contains(m)) {
+						//System.out.println("ENEMY CORNER TAKEN!");
+						totalScoreOutput -= ENEMY_CORNER_PENALTY;
+					} else {
+						//System.out.println("ENEMY EDGE TAKEN!");
+						totalScoreOutput -= ENEMY_EDGE_PENALTY;
+					}
+				}
+			}
+		} else {
+			for (OthelloMove m : corners) {
+				OthelloCell moveCell = s.getCell(m.getRow(), m.getColumn());
+				if (moveCell == OthelloCell.WHITE) {
+					if (corners.contains(m)) {
+						//System.out.println("BLACK CORNER TAKEN");
+						totalScoreOutput += CORNER_BONUS;
+					} else {
+						//System.out.println("BLACK EDGE TAKEN");
+						totalScoreOutput += EDGE_BONUS;
+					}
+				} else if (moveCell == OthelloCell.BLACK) {
+					if (corners.contains(m)) {
+						//System.out.println("ENEMY CORNER TAKEN!");
+						totalScoreOutput -= ENEMY_CORNER_PENALTY;
+					} else {
+						//System.out.println("ENEMY EDGE TAKEN!");
+						totalScoreOutput -= ENEMY_EDGE_PENALTY;
+					}
+				}
+			}
+		}
+
+		//System.out.println("WOULD RETURN " + totalScoreOutput);
+		return totalScoreOutput;
+	}
+
+	int eval(OthelloGameState s) {
+		int totalScore = 0;
+		
+		int gameAdvantage = IS_BLACK_SIDE ? s.getBlackScore() - s.getWhiteScore() : s.getWhiteScore() - s.getBlackScore();
+
+		int sideAndCornerScore = sideHasCorners(s);
+
+		return totalScore;
+	}
 
 	int search(OthelloGameState s, int depth) {
-
 		/*
 		 * if depth == 0 or leaf node
 		 * return eval of s
@@ -39,26 +133,63 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		 * return minimum value from recursive search
 		 */
 
-		return 1;
+		boolean ourTurn = (s.isBlackTurn() == IS_BLACK_SIDE);
+
+		//System.out.println("OUR TURN?: " + ourTurn);
+
+		if (depth == 0 || isTerminalNode(s)) {
+			return eval(s);
+		}
+
+		ArrayList<OthelloMove> validMoves = findValidMoves(s);
+
+		if (ourTurn) { // MAXIMIZE SCORE
+
+			int bestHeuristic = Integer.MIN_VALUE;
+
+			for (OthelloMove m : validMoves) {
+
+				OthelloGameState nextState = s.clone();
+				nextState.makeMove(m.getRow(), m.getColumn());
+				int branchEval = search(nextState, depth - 1);
+
+				if (branchEval > bestHeuristic) {
+					bestHeuristic = branchEval;
+				}
+			}
+
+			return bestHeuristic;
+
+		} else { // MINIMIZE SCORE
+
+			int worstHeuristic = Integer.MAX_VALUE;
+
+			for (OthelloMove m : validMoves) {
+
+				OthelloGameState nextState = s.clone();
+				nextState.makeMove(m.getRow(), m.getColumn());
+				int branchEval = search(nextState, depth - 1);
+
+				if (branchEval < worstHeuristic) {
+					worstHeuristic = branchEval;
+				}
+			}
+
+			return worstHeuristic;
+		}
 	}
 
 	public boolean isTerminalNode(OthelloGameState s) {
-		System.out.println("MOVES: " + findValidMoves(s).size());
+		//System.out.println("MOVES: " + findValidMoves(s).size());
 		if (findValidMoves(s).size() <= 1) {
 			return true;
 		}
 		return false;
 	}
 
-	// TODO: need a heuristic class
-	public static int getRandomNumber(int x) {
-		Random random = new Random();
-		return random.nextInt(x);
-	}
-
 	// TODO: Implement as a priority queue or a TreeMap
-	public HashMap<OthelloMove, Integer> findValidMoves(OthelloGameState state) {
-		HashMap<OthelloMove, Integer> validList = new HashMap<OthelloMove, Integer>();
+	public ArrayList<OthelloMove> findValidMoves(OthelloGameState state) {
+		ArrayList<OthelloMove> validList = new ArrayList<OthelloMove>();
 
 		// check for corners first
 
@@ -72,7 +203,7 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 
 					// get heuristic values
 					// pack heuristic values with the relevant next move
-					validList.put(new OthelloMove(r, c), evalSide(nextState, IS_BLACK));
+					validList.add(new OthelloMove(r, c));
 				}
 			}
 		}
@@ -85,111 +216,46 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	// you'd return a new OthelloMove with row 0 and column 3.
 	public OthelloMove chooseMove(OthelloGameState state) {
 
-		IS_BLACK = state.isBlackTurn();
+		long time = System.nanoTime();
 
-		System.out.println("WE ARE BLACK? " + IS_BLACK);
-		System.out.println(isTerminalNode(state));
+		IS_BLACK_SIDE = state.isBlackTurn();
 
-		HashMap<OthelloMove, Integer> heuristicMap = findValidMoves(state);
+		// TODO: take corner without even thinking
 
-		System.out.println(heuristicMap.toString());
-
-		OthelloMove bestMove = null;
-		// first pass should always be better, bs and ws at least 2.
-		int bestHeuristic = -99;
-
-		if (IS_BLACK) {
-			for (OthelloMove m : heuristicMap.keySet()) {
-				int possibleMoveHeuristic = heuristicMap.get(m);
-
-				if (possibleMoveHeuristic > bestHeuristic) {
-					bestMove = m;
-					bestHeuristic = possibleMoveHeuristic;
-				}
-
-			}
-		} else {
-			for (OthelloMove m : heuristicMap.keySet()) {
-				int possibleMoveHeuristic = heuristicMap.get(m);
-				if (possibleMoveHeuristic > bestHeuristic) {
-					bestMove = m;
-					bestHeuristic = possibleMoveHeuristic;
-				}
+		for (OthelloMove m : corners) {
+			if (state.isValidMove(m.getRow(), m.getColumn())) {
+				return m;
 			}
 		}
 
-		System.out.println("PICKING MOVE " + bestMove.hashCode() + " WITH EVAL " + heuristicMap.get(bestMove).toString());
+		//System.out.println("WE ARE BLACK? " + IS_BLACK_SIDE);
+		//System.out.println(isTerminalNode(state));
+
+		ArrayList<OthelloMove> validMoves = findValidMoves(state);
+
+		HashMap<OthelloMove, Integer> heuristicMap = new HashMap<OthelloMove, Integer>();
+
+		for (OthelloMove m : validMoves) {
+			OthelloGameState clonedState = state.clone();
+			clonedState.makeMove(m.getRow(), m.getColumn());
+			heuristicMap.put(m, search(clonedState, DEPTH_TUNE));
+		}
+
+		OthelloMove bestMove = null;
+		int highestValue = Integer.MIN_VALUE;
+
+		for (Map.Entry<OthelloMove, Integer> entry : heuristicMap.entrySet()) {
+			if (entry.getValue() > highestValue) {
+				highestValue = entry.getValue();
+				bestMove = entry.getKey();
+			}
+		}
+
+		time = (System.nanoTime() - time) / 1_000_000;
+
+		//System.out.println("PICKING MOVE " + bestMove.hashCode());
+		//System.out.println("TIME TAKEN: " + time);
 		return bestMove;
 	}
-
-	/*
-	 * DEPRECATED
-	 * 
-	 * This class is responsible for being the value in a kv pair with the game
-	 * state
-	 * in order to efficiently organize the game states by highest heuristic value
-	 * 
-	 * if you are getting a certain move set, you are getting the next
-	 * state's heuristic values.
-	 * 
-	 * public static class Heuristic {
-	 * 
-	 * int blackScore;
-	 * int whiteScore;
-	 * 
-	 * public Heuristic(int blackScore, int whiteScore) {
-	 * this.blackScore = blackScore;
-	 * this.whiteScore = whiteScore;
-	 * }
-	 * 
-	 * public int getBlackScore() {
-	 * return blackScore;
-	 * }
-	 * 
-	 * public void setBlackScore(int blackScore) {
-	 * this.blackScore = blackScore;
-	 * }
-	 * 
-	 * public int getWhiteScore() {
-	 * return whiteScore;
-	 * }
-	 * 
-	 * public void setWhiteScore(int whiteScore) {
-	 * this.whiteScore = whiteScore;
-	 * }
-	 * 
-	 * @Override
-	 * public int hashCode() {
-	 * final int prime = 31;
-	 * int result = 1;
-	 * result = prime * result + blackScore;
-	 * result = prime * result + whiteScore;
-	 * return result;
-	 * }
-	 * 
-	 * @Override
-	 * public boolean equals(Object obj) {
-	 * if (this == obj)
-	 * return true;
-	 * if (obj == null)
-	 * return false;
-	 * if (getClass() != obj.getClass())
-	 * return false;
-	 * Heuristic other = (Heuristic) obj;
-	 * if (blackScore != other.blackScore)
-	 * return false;
-	 * if (whiteScore != other.whiteScore)
-	 * return false;
-	 * return true;
-	 * }
-	 * 
-	 * @Override
-	 * public String toString() {
-	 * return "Heuristic [blackScore=" + blackScore + ", whiteScore=" + whiteScore +
-	 * "]";
-	 * }
-	 * 
-	 * }
-	 */
 
 }
