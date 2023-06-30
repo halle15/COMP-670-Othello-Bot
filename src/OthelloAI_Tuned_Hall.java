@@ -8,28 +8,29 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
-public class OthelloAI_Recursive_Hall implements OthelloAI {
+public class OthelloAI_Tuned_Hall implements OthelloAI {
 
 	// TUNING PARAMETERS
 	int ALPHA_PARAMETER = -10;
 	int BETA_PARAMETER = 20;
 
 	int DEPTH_TUNE = 6;
-	int IT_DEEPENING_PARAMETER = 10;
+	int IT_DEEPENING_PARAMETER = 25;
 
-	double SCORE_TUNE = 2;
-	double MOBILITY_TUNE = 0.3;
+	double SCORE_TUNE = 1;
+	double MOBILITY_TUNE = 2;
 
 	// CORNERS
-	int AVAILABLE_CORNER_BONUS = 2;
-	int CORNER_BONUS = 5;
-	int ENEMY_CORNER_PENALTY = -10;
+	int AVAILABLE_CORNER_BONUS = 3;
+	int CORNER_BONUS = 0;
+	int ENEMY_CORNER_PENALTY = -2;
 
-	// EDGES
-	int AVAILABLE_EDGE_BONUS = 1;
-	int EDGE_BONUS = 2;
-	int ENEMY_EDGE_PENALTY = -3;
+	// EDGES	
+	int AVAILABLE_EDGE_BONUS = 2;
+	int EDGE_BONUS = 0;
+	int ENEMY_EDGE_PENALTY = -1;
 
 	// END TUNING PARAMETERS
 
@@ -217,36 +218,16 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		return validList;
 	}
 
-	/**
- 	* Chooses the next move in the game of Othello, according to the current game state.
- 	* 
- 	* This method employs several strategies to decide the move:
- 	* 1. If the move count is a multiple of a specific parameter (IT_DEEPENING_PARAMETER), it increases the search depth and score tune.
- 	* 2. If a corner move is valid, it will be chosen instantly.
-	* 3. If more than one move has the highest heuristic value, a shallow 3-depth search is performed to break the tie.
- 	* 
- 	* @param state Current OthelloGameState instance, representing the current state of the game.
- 	* @return The selected OthelloMove instance, representing the best move chosen based on the implemented AI strategies.
- 	* @throws IllegalStateException if no valid moves are possible from the current state.
- 	* 
- 	* Side effects:
- 	* - Updates global counters and flags; number of moves, depth of search, which side of turn
- 	* - Prints the chosen move, time taken for computation and evaluation of the current game state to the console.
- 	*/
+	// chooseMove() takes an OthelloGameState and chooses the best move,
+	// returning an OthelloMove that indicates what the move is. For
+	// example, if the appropriate move is to place a tile in row 0 column 3,
+	// you'd return a new OthelloMove with row 0 and column 3.
 	public OthelloMove chooseMove(OthelloGameState state) {
 		moves++;
 		long time = System.nanoTime();
 
-
-		// very rudimentary depth tuning
-		if(moves == 7){
-			DEPTH_TUNE -= 1;
-		}
-
-		// very rudimentary depth tuning
-		// if moves hits the cycle number of IT_DEEPENING_PARAMETER, focus more on score, search further
 		if (moves % IT_DEEPENING_PARAMETER == 0) {
-			SCORE_TUNE += 4;
+			SCORE_TUNE += 2;
 			DEPTH_TUNE++;
 		}
 
