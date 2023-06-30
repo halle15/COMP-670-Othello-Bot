@@ -12,11 +12,13 @@ import java.util.Map;
 public class OthelloAI_Recursive_Hall implements OthelloAI {
 
 	// TUNING PARAMETERS
-	int ALPHA_PARAMETER = -10;
-	int BETA_PARAMETER = 20;
+	long MAX_SEARCH_TIME = 4750;
+
+	int ALPHA_PARAMETER = -99;
+	int BETA_PARAMETER = 99;
 
 	int DEPTH_TUNE = 6;
-	int IT_DEEPENING_PARAMETER = 10;
+	int IT_DEEPENING_PARAMETER = 10; // rudimentary, update
 
 	double SCORE_TUNE = 2;
 	double MOBILITY_TUNE = 0.3;
@@ -24,18 +26,21 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	// CORNERS
 	int AVAILABLE_CORNER_BONUS = 2;
 	int CORNER_BONUS = 5;
-	int ENEMY_CORNER_PENALTY = -10;
+	int ENEMY_CORNER_PENALTY = -15;
 
 	// EDGES
 	int AVAILABLE_EDGE_BONUS = 1;
 	int EDGE_BONUS = 2;
 	int ENEMY_EDGE_PENALTY = -3;
-
 	// END TUNING PARAMETERS
 
 	// GENERAL GAME INFO
+
 	boolean IS_BLACK_SIDE;
+	// stats
 	int moves = 0;
+	int states = 0;
+	long time;
 
 	// HARDCODED SLOTS
 	static ArrayList<OthelloMove> corners = new ArrayList<>();
@@ -56,6 +61,15 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 			edges.add(new OthelloMove(i, 0)); // left edge
 			edges.add(new OthelloMove(i, 7)); // right edge
 		}
+
+	}
+
+	void startTime() {
+		time = System.nanoTime();
+	}
+
+	long checkTime() {
+		return (System.nanoTime() - time) / 1_000_000;
 	}
 
 	int sideHasCorners(OthelloGameState s) {
@@ -119,6 +133,8 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	}
 
 	int eval(OthelloGameState s) {
+		states++;
+
 		int totalScore = 0;
 
 		int gameAdvantage = (int) (calculateGameAdvantage(s) * SCORE_TUNE);
@@ -132,6 +148,15 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		return totalScore;
 	}
 
+	/**
+	 * Performs a search algorithm to find the best move in an Othello game state.
+	 *
+	 * @param s     The current game state.
+	 * @param depth The depth of the search tree.
+	 * @param alpha The alpha value for alpha-beta pruning.
+	 * @param beta  The beta value for alpha-beta pruning.
+	 * @return The heuristic value of the best move.
+	 */
 	int search(OthelloGameState s, int depth, int alpha, int beta) {
 		boolean ourTurn = (s.isBlackTurn() == IS_BLACK_SIDE);
 
@@ -145,6 +170,11 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 			int bestHeuristic = Integer.MIN_VALUE;
 
 			for (OthelloMove m : validMoves) {
+				long elapsedTime = checkTime();
+				if (elapsedTime >= MAX_SEARCH_TIME) {
+					break;
+				}
+
 				OthelloGameState nextState = s.clone();
 				nextState.makeMove(m.getRow(), m.getColumn());
 
@@ -166,6 +196,11 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 			int worstHeuristic = Integer.MAX_VALUE;
 
 			for (OthelloMove m : validMoves) {
+				long elapsedTime = checkTime();
+				if (elapsedTime >= MAX_SEARCH_TIME) {
+					System.out.println("TIME UP!");
+					break;
+				}
 				OthelloGameState nextState = s.clone();
 				nextState.makeMove(m.getRow(), m.getColumn());
 
@@ -186,6 +221,12 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		}
 	}
 
+	/**
+	 * Helper function to check if the given game state is a terminal node.
+	 *
+	 * @param s The game state to check.
+	 * @return True if the state is a terminal node, False otherwise.
+	 */
 	public boolean isTerminalNode(OthelloGameState s) {
 		// System.out.println("MOVES: " + findValidMoves(s).size());
 		if (findValidMoves(s).size() <= 1) {
@@ -194,7 +235,13 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 		return false;
 	}
 
-	// TODO: Implement as a priority queue or a TreeMap
+	/**
+	 * Finds valid moves in the given game state.
+	 * TODO: Implement priority queue or treemap?
+	 *
+	 * @param state The game state to find valid moves in.
+	 * @return An ArrayList of valid moves.
+	 */
 	public ArrayList<OthelloMove> findValidMoves(OthelloGameState state) {
 		ArrayList<OthelloMove> validList = new ArrayList<OthelloMove>();
 
@@ -218,42 +265,34 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 	}
 
 	/**
- 	* Chooses the next move in the game of Othello, according to the current game state.
- 	* 
- 	* This method employs several strategies to decide the move:
- 	* 1. If the move count is a multiple of a specific parameter (IT_DEEPENING_PARAMETER), it increases the search depth and score tune.
- 	* 2. If a corner move is valid, it will be chosen instantly.
-	* 3. If more than one move has the highest heuristic value, a shallow 3-depth search is performed to break the tie.
- 	* 
- 	* @param state Current OthelloGameState instance, representing the current state of the game.
- 	* @return The selected OthelloMove instance, representing the best move chosen based on the implemented AI strategies.
- 	* @throws IllegalStateException if no valid moves are possible from the current state.
- 	* 
- 	* Side effects:
- 	* - Updates global counters and flags; number of moves, depth of search, which side of turn
- 	* - Prints the chosen move, time taken for computation and evaluation of the current game state to the console.
- 	*/
+	 * Chooses the best move for the current game state.
+	 *
+	 * @param state The current game state.
+	 * @return The best move to make.
+	 */
+
 	public OthelloMove chooseMove(OthelloGameState state) {
 		moves++;
-		long time = System.nanoTime();
-
+		startTime();
 
 		// very rudimentary depth tuning
-		if(moves == 7){
+		if (moves == 6) {
 			DEPTH_TUNE -= 1;
 		}
 
 		// very rudimentary depth tuning
-		// if moves hits the cycle number of IT_DEEPENING_PARAMETER, focus more on score, search further
+		// if moves hits the cycle number of IT_DEEPENING_PARAMETER, focus more on
+		// score, search further, focus more on edges a bit
 		if (moves % IT_DEEPENING_PARAMETER == 0) {
 			SCORE_TUNE += 4;
+			EDGE_BONUS += 1;
 			DEPTH_TUNE++;
 		}
 
-		IS_BLACK_SIDE = state.isBlackTurn();
+		IS_BLACK_SIDE = state.isBlackTurn(); // figure out if we are black or not
 
-		// TODO: take corner without even thinking
-
+		// take corner without thinking
+		// may want to change, might lead to undesirable outcomes in the long run
 		for (OthelloMove m : corners) {
 			if (state.isValidMove(m.getRow(), m.getColumn())) {
 				time = (System.nanoTime() - time) / 1_000_000;
@@ -266,58 +305,64 @@ public class OthelloAI_Recursive_Hall implements OthelloAI {
 			}
 		}
 
-		// System.out.println("WE ARE BLACK? " + IS_BLACK_SIDE);
-		// System.out.println(isTerminalNode(state));
+		ArrayList<OthelloMove> validMoves = findValidMoves(state); // prepare a list of valid moves
 
-		ArrayList<OthelloMove> validMoves = findValidMoves(state);
+		HashMap<OthelloMove, Integer> heuristicMap = new HashMap<OthelloMove, Integer>(); // prepare a map of heuristics
+																							// compared to the moves
 
-		HashMap<OthelloMove, Integer> heuristicMap = new HashMap<OthelloMove, Integer>();
+		states = 0; // reset state stats.
 
+		// for all of our moves, put in the heuristic calculated for the given move into
+		// our map
 		for (OthelloMove m : validMoves) {
 			OthelloGameState clonedState = state.clone();
 			clonedState.makeMove(m.getRow(), m.getColumn());
 			heuristicMap.put(m, search(clonedState, DEPTH_TUNE, ALPHA_PARAMETER, BETA_PARAMETER));
 		}
 
-		OthelloMove bestMove = null;
-		int highestValue = Integer.MIN_VALUE;
+		OthelloMove bestMove = null; // prepare best move
+		int highestValue = Integer.MIN_VALUE; // prepare highest value of our move
 
 		List<OthelloMove> topMoves = new ArrayList<>();
 
+		// fo all of our entries in our move set/heuristic map
 		for (Map.Entry<OthelloMove, Integer> entry : heuristicMap.entrySet()) {
-			int currentValue = entry.getValue();
-			if (currentValue > highestValue) {
-				highestValue = currentValue;
-				bestMove = entry.getKey();
-				topMoves.clear();
-				topMoves.add(bestMove);
+			int currentValue = entry.getValue(); // get the heuristic
+			if (currentValue > highestValue) { // if it is higher than the currently recorded value
+				highestValue = currentValue; // set our highest value
+				bestMove = entry.getKey(); // set our best move
+				topMoves.clear(); // clear our top moves list? CHECK IF THIS IS RIGHT
+				topMoves.add(bestMove); // add our best move to the move map
 			} else if (currentValue == highestValue) {
-				topMoves.add(entry.getKey());
+				topMoves.add(entry.getKey()); // if it happens to be equal to the highestValue, add it to this list to
+												// be sorted later
 			}
 		}
 
+		// in the case of a tie
 		if (topMoves.size() > 1) {
+
 			// Perform a quick 3-depth search on tied moves
-			int bestHeuristic = Integer.MIN_VALUE;
-			for (OthelloMove move : topMoves) {
-				OthelloGameState clonedState = state.clone();
-				clonedState.makeMove(move.getRow(), move.getColumn());
-				int heuristic = search(clonedState, 3, ALPHA_PARAMETER, BETA_PARAMETER);
-				if (heuristic > bestHeuristic) {
+			int bestHeuristic = Integer.MIN_VALUE; // init bestHeuristic
+			for (OthelloMove move : topMoves) { // for every move in our map
+				OthelloGameState clonedState = state.clone(); // clone our state to perform the search
+				clonedState.makeMove(move.getRow(), move.getColumn()); // make the move on the state to get it ready for
+																		// search
+				int heuristic = search(clonedState, 3, ALPHA_PARAMETER, BETA_PARAMETER); // search it!
+				if (heuristic > bestHeuristic) { // if we find it, make the move!
 					bestHeuristic = heuristic;
 					bestMove = move;
 				}
 			}
+
 		}
 
-		time = (System.nanoTime() - time) / 1_000_000;
+		time = checkTime(); // end our time recording
 
 		// Print the chosen move and evaluation
-		for (int i = 0; i < 50; i++) {
-			System.out.println();
-		}
 		System.out.println(IS_BLACK_SIDE ? "BLACK TURN " + moves : "WHITE TURN " + moves);
 		System.out.println("TIME TAKEN: " + time);
+		System.out.println("STATES EVALUATED: " + states);
 		System.out.println("EVALUATION OF OUR STATE: " + eval(state));
 		return bestMove;
 	}
