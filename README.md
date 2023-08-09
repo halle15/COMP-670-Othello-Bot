@@ -1,6 +1,10 @@
 ## Getting Started
 
-Welcome to the VS Code Java world. Here is a guideline to help you get started to write Java code in Visual Studio Code.
+This project is an implementation of an Othello AI bot that you can play against.
+
+This was programmed in Java, and implements the Min-Max search algorithm, with A/B pruning and a custom heuristic evaluation function.
+
+The evaluation function takes into account corners, edges, how many moves are available, the overall score, and more.
 
 ## Folder Structure
 
